@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HabitController;
 use App\Http\Controllers\HabitLogController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\StatisticsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -15,6 +16,8 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/statistics', [StatisticsController::class, 'index'])->name('statistics');
+    Route::get('/habits/manage', [HabitController::class, 'manage'])->name('habits.manage');
     Route::resource('habits', HabitController::class);
     Route::post('/habits/toggle', [HabitLogController::class, 'toggle'])->name('habits.toggle');
     Route::post('/habit/toggle', [HabitLogController::class, 'toggle'])->name('habit.toggle');

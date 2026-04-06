@@ -1,11 +1,14 @@
 <x-app-layout>
     <x-slot name="header">
-        <h1 class="h4 mb-0">Create Habit</h1>
+        <div>
+            <h1 class="h4 mb-1">Add Habit</h1>
+            <p class="text-muted mb-0">Define a new habit and its tracking frequency.</p>
+        </div>
     </x-slot>
 
     <div class="row justify-content-center">
         <div class="col-12 col-lg-6">
-            <div class="habit-card rounded-4 p-4 shadow-sm">
+            <div class="habit-card rounded-4 p-4">
                 <form method="POST" action="{{ route('habits.store') }}">
                     @csrf
                     <div class="mb-3">
@@ -32,8 +35,8 @@
                         @enderror
                     </div>
                     <div class="d-flex gap-2">
-                        <button class="btn btn-dark" type="submit">Save Habit</button>
-                        <a class="btn btn-outline-secondary" href="{{ route('dashboard') }}">Cancel</a>
+                        <button class="btn btn-habit" type="submit">Save Habit</button>
+                        <a class="btn btn-outline-secondary" href="{{ route('habits.manage') }}">Cancel</a>
                     </div>
                 </form>
             </div>

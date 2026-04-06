@@ -13,7 +13,17 @@ class HabitController extends Controller
      */
     public function index()
     {
-        return redirect()->route('dashboard');
+        return redirect()->route('habits.manage');
+    }
+
+    /**
+     * Display the manage habits page.
+     */
+    public function manage(Request $request)
+    {
+        $habits = $request->user()->habits()->orderBy('created_at')->get();
+
+        return view('habits.manage', compact('habits'));
     }
 
     /**
@@ -37,7 +47,7 @@ class HabitController extends Controller
 
         $request->user()->habits()->create($validated);
 
-        return redirect()->route('dashboard')->with('status', 'Habit created successfully.');
+        return redirect()->route('habits.manage')->with('status', 'Habit created successfully.');
     }
 
     /**
@@ -73,7 +83,7 @@ class HabitController extends Controller
 
         $habit->update($validated);
 
-        return redirect()->route('dashboard')->with('status', 'Habit updated successfully.');
+        return redirect()->route('habits.manage')->with('status', 'Habit updated successfully.');
     }
 
     /**
@@ -84,7 +94,7 @@ class HabitController extends Controller
         $habit = $this->userHabit($id);
         $habit->delete();
 
-        return redirect()->route('dashboard')->with('status', 'Habit deleted.');
+        return redirect()->route('habits.manage')->with('status', 'Habit deleted.');
     }
 
     private function userHabit(string $id): Habit
