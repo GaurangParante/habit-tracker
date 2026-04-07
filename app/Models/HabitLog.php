@@ -11,11 +11,13 @@ class HabitLog extends Model
         'habit_id',
         'date',
         'status',
+        'count',
     ];
 
     protected $casts = [
         'date' => 'date',
         'status' => 'boolean',
+        'count' => 'integer',
     ];
 
     public function habit(): BelongsTo

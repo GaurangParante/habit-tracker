@@ -130,6 +130,21 @@
                 color: #e5e5e5;
             }
 
+            body.dark-mode .modal-content {
+                background-color: #1e1e1e;
+                color: #f1f1f1;
+                border: 1px solid #2b2b2b;
+            }
+
+            body.dark-mode .modal-header,
+            body.dark-mode .modal-footer {
+                border-color: #2b2b2b;
+            }
+
+            body.dark-mode .btn-close {
+                filter: invert(1);
+            }
+
             .habit-status-label {
                 min-width: 96px;
                 text-align: right;
@@ -405,7 +420,6 @@
                 <button class="btn-icon d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar">
                     <i class="fa-solid fa-bars"></i>
                 </button>
-                <a class="header-title" href="{{ route('dashboard') }}">Habit Tracker</a>
                 <div class="header-actions">
                     <span class="small text-muted d-none d-md-inline">{{ Auth::user()->name }}</span>
                     <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">
@@ -442,6 +456,9 @@
                         <a class="nav-link {{ request()->routeIs('habits.manage', 'habits.edit') ? 'active' : '' }}" href="{{ route('habits.manage') }}">
                             <i class="fa-solid fa-list-check"></i>Manage Habits
                         </a>
+                        <a class="nav-link {{ request()->routeIs('todos.*') ? 'active' : '' }}" href="{{ route('todos.index') }}">
+                            <i class="fa-solid fa-check-double"></i>Todos
+                        </a>
                     </nav>
                 </aside>
 
@@ -463,6 +480,9 @@
                             </a>
                             <a class="nav-link {{ request()->routeIs('habits.manage', 'habits.edit') ? 'active' : '' }}" href="{{ route('habits.manage') }}">
                                 <i class="fa-solid fa-list-check"></i>Manage Habits
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('todos.*') ? 'active' : '' }}" href="{{ route('todos.index') }}">
+                                <i class="fa-solid fa-check-double"></i>Todos
                             </a>
                         </nav>
                     </div>

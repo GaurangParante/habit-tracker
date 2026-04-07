@@ -87,6 +87,73 @@
         @endforelse
     </div>
 
+    <div class="row g-4 mt-2">
+        <div class="col-12 col-lg-7">
+            <div class="habit-card rounded-4 p-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <h2 class="h5 mb-1">Weekly Pattern</h2>
+                        <p class="text-muted small mb-0">Which weekdays you complete habits most often.</p>
+                    </div>
+                    <span class="badge text-bg-light text-uppercase">Last 8 weeks</span>
+                </div>
+                <canvas id="weeklyPatternChart" height="140"></canvas>
+            </div>
+        </div>
+        <div class="col-12 col-lg-5">
+            <div class="row g-4 h-100">
+                <div class="col-12">
+                    <div class="habit-card rounded-4 p-4">
+                        <h3 class="h6 text-muted text-uppercase">Best Habit</h3>
+                        @if ($bestHabit)
+                            <div class="fw-semibold">{{ $bestHabit['habit']->title }}</div>
+                            <div class="text-muted small mb-2">{{ $bestHabit['habit']->description ?? 'No description' }}</div>
+                            <div class="fw-semibold">{{ $bestHabit['score'] }}% <span class="text-muted small">({{ $bestHabit['label'] }})</span></div>
+                        @else
+                            <p class="text-muted small mb-0">Add some habits to see your top performer.</p>
+                        @endif
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="habit-card rounded-4 p-4">
+                        <h3 class="h6 text-muted text-uppercase">Needs Attention</h3>
+                        @if ($worstHabit)
+                            <div class="fw-semibold">{{ $worstHabit['habit']->title }}</div>
+                            <div class="text-muted small mb-2">{{ $worstHabit['habit']->description ?? 'No description' }}</div>
+                            <div class="fw-semibold">{{ $worstHabit['score'] }}% <span class="text-muted small">({{ $worstHabit['label'] }})</span></div>
+                        @else
+                            <p class="text-muted small mb-0">You are off to a great start.</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="habit-card rounded-4 p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <h2 class="h5 mb-1">Completion Heatmap</h2>
+                        <p class="text-muted small mb-0">Daily habit completions over the last 90 days.</p>
+                    </div>
+                    <span class="badge text-bg-light text-uppercase">Heatmap</span>
+                </div>
+                <div id="heatmapGrid" class="heatmap-grid"></div>
+                <div class="d-flex align-items-center gap-2 mt-3 text-muted small">
+                    <span>Less</span>
+                    <span class="heatmap-swatch heatmap-0"></span>
+                    <span class="heatmap-swatch heatmap-1"></span>
+                    <span class="heatmap-swatch heatmap-2"></span>
+                    <span class="heatmap-swatch heatmap-3"></span>
+                    <span class="heatmap-swatch heatmap-4"></span>
+                    <span>More</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @push('styles')
         <style>
             .chart-wrap {
@@ -100,6 +167,32 @@
                 position: relative;
                 width: 120px;
                 height: 120px;
+            }
+
+            .heatmap-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(14px, 1fr));
+                gap: 6px;
+            }
+
+            .heatmap-cell {
+                width: 14px;
+                height: 14px;
+                border-radius: 4px;
+                background: #e5ece9;
+            }
+
+            .heatmap-0 { background: #e5ece9; }
+            .heatmap-1 { background: #c5ded1; }
+            .heatmap-2 { background: #9ccbb7; }
+            .heatmap-3 { background: #65b097; }
+            .heatmap-4 { background: #2f8c6a; }
+
+            .heatmap-swatch {
+                width: 14px;
+                height: 14px;
+                display: inline-block;
+                border-radius: 4px;
             }
         </style>
     @endpush
@@ -155,6 +248,54 @@
                 makeDonut('habit-weekly-{{ $habit['id'] }}', {{ $habit['weeklyPercent'] }}, '#1f7a5b');
                 makeDonut('habit-monthly-{{ $habit['id'] }}', {{ $habit['monthlyPercent'] }}, '#2b9d7a');
             @endforeach
+
+            const weeklyPattern = @json($weeklyPattern ?? []);
+            const weeklyLabels = weeklyPattern.map(item => item.day);
+            const weeklyData = weeklyPattern.map(item => item.completion_rate);
+            const weeklyCtx = document.getElementById('weeklyPatternChart');
+            if (weeklyCtx) {
+                new Chart(weeklyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: weeklyLabels,
+                        datasets: [{
+                            label: 'Completion rate',
+                            data: weeklyData,
+                            backgroundColor: '#2b9d7a',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                min: 0,
+                                max: 100,
+                                ticks: { callback: (value) => `${value}%` }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+
+            const heatmapData = @json($heatmap ?? []);
+            const heatmapGrid = document.getElementById('heatmapGrid');
+            if (heatmapGrid && heatmapData.length) {
+                const maxCount = Math.max(...heatmapData.map(item => item.count));
+                heatmapData.forEach((entry) => {
+                    const cell = document.createElement('div');
+                    let level = 0;
+                    if (maxCount > 0) {
+                        const ratio = entry.count / maxCount;
+                        level = ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : ratio > 0 ? 1 : 0;
+                    }
+                    cell.className = `heatmap-cell heatmap-${level}`;
+                    cell.title = `${entry.date}: ${entry.count} completed`;
+                    heatmapGrid.appendChild(cell);
+                });
+            }
         </script>
     @endpush
 </x-app-layout>

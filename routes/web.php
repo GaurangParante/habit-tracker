@@ -5,6 +5,7 @@ use App\Http\Controllers\HabitController;
 use App\Http\Controllers\HabitLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StatisticsController;
+use App\Http\Controllers\TodoController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -24,6 +25,12 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/api/habits/{id}/weekly', [HabitLogController::class, 'weekly'])->name('habits.weekly');
     Route::get('/api/habits/{id}/monthly', [HabitLogController::class, 'monthly'])->name('habits.monthly');
+
+    Route::get('/todos', [TodoController::class, 'index'])->name('todos.index');
+    Route::post('/todos', [TodoController::class, 'store'])->name('todos.store');
+    Route::put('/todos/{id}', [TodoController::class, 'update'])->name('todos.update');
+    Route::delete('/todos/{id}', [TodoController::class, 'destroy'])->name('todos.destroy');
+    Route::post('/todos/toggle', [TodoController::class, 'toggleStatus'])->name('todos.toggle');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

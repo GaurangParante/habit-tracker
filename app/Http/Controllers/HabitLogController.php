@@ -3,31 +3,42 @@
 namespace App\Http\Controllers;
 
 use App\Models\HabitLog;
+use App\Services\HabitAnalyticsService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 
 class HabitLogController extends Controller
 {
-    public function toggle(Request $request)
+    public function toggle(Request $request, HabitAnalyticsService $analytics)
     {
         $validated = $request->validate([
             'habit_id' => ['required', 'integer', 'exists:habits,id'],
             'date' => ['required', 'date'],
             'status' => ['required', 'boolean'],
+            'count' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $habit = $request->user()->habits()->findOrFail($validated['habit_id']);
         $date = Carbon::parse($validated['date'])->toDateString();
+        $target = max(1, (int) $habit->target_per_day);
+        $count = isset($validated['count'])
+            ? (int) $validated['count']
+            : ((bool) $validated['status'] ? $target : 0);
+        $status = $count >= $target;
 
         $log = HabitLog::updateOrCreate(
             ['habit_id' => $habit->id, 'date' => $date],
-            ['status' => $validated['status']]
+            ['status' => $status, 'count' => $count]
         );
+
+        $analytics->updateHabitStreaks($habit);
+        $analytics->syncAchievements($request->user());
 
         return response()->json([
             'success' => true,
             'status' => $log->status,
+            'count' => $log->count,
             'date' => $log->date->toDateString(),
         ]);
     }
@@ -61,7 +72,7 @@ class HabitLogController extends Controller
         foreach ($period as $date) {
             $dateString = $date->toDateString();
             $labels[] = $date->format('M d');
-            $data[] = isset($logs[$dateString]) && $logs[$dateString]->status ? 1 : 0;
+            $data[] = isset($logs[$dateString]) && ($logs[$dateString]->count >= max(1, (int) $habit->target_per_day)) ? 1 : 0;
         }
 
         return response()->json([

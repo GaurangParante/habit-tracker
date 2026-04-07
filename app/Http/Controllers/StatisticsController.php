@@ -3,65 +3,82 @@
 namespace App\Http\Controllers;
 
 use App\Models\HabitLog;
+use App\Services\HabitAnalyticsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class StatisticsController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, HabitAnalyticsService $analytics)
     {
         $today = Carbon::today();
-        $overall = $this->overallStats($request, $today);
-        $habitStats = $this->habitStats($request, $today);
+        $overall = $this->overallStats($request, $today, $analytics);
+        $habitStats = $this->habitStats($request, $today, $analytics);
+        $weeklyPattern = $analytics->getWeeklyPattern($request->user(), $today);
+        $bestWorst = $analytics->getBestWorstHabits($request->user(), $today);
+        $heatmap = $analytics->getHeatmapData($request->user(), $today);
 
         return view('statistics', array_merge($overall, [
             'habitStats' => $habitStats,
+            'weeklyPattern' => $weeklyPattern,
+            'bestHabit' => $bestWorst['best'] ?? null,
+            'worstHabit' => $bestWorst['worst'] ?? null,
+            'heatmap' => $heatmap,
             'today' => $today,
         ]));
     }
 
-    public function overallStats(Request $request, Carbon $today = null): array
+    public function overallStats(Request $request, Carbon $today = null, ?HabitAnalyticsService $analytics = null): array
     {
         $today = $today ?? Carbon::today();
+        $analytics = $analytics ?? app(HabitAnalyticsService::class);
         $user = $request->user();
-        $habitCount = $user->habits()->count();
+        $habits = $user->habits()->get();
+        $habitCount = $habits->count();
 
         $weeklyStart = $today->copy()->subDays(6);
         $monthStart = $today->copy()->startOfMonth();
-        $monthEnd = $today->copy()->endOfMonth();
         $daysInMonth = (int) $today->daysInMonth;
+        $rangeStart = $monthStart->lt($weeklyStart) ? $monthStart : $weeklyStart;
 
-        $completedToday = HabitLog::query()
-            ->join('habits', 'habit_logs.habit_id', '=', 'habits.id')
-            ->where('habits.user_id', $user->id)
-            ->whereDate('habit_logs.date', $today->toDateString())
-            ->where('habit_logs.status', true)
-            ->count();
+        $habitIds = $habits->pluck('id');
+        $logsByHabit = HabitLog::query()
+            ->whereIn('habit_id', $habitIds)
+            ->whereBetween('date', [$rangeStart->toDateString(), $today->toDateString()])
+            ->get()
+            ->groupBy('habit_id');
 
-        $completedWeekly = HabitLog::query()
-            ->join('habits', 'habit_logs.habit_id', '=', 'habits.id')
-            ->where('habits.user_id', $user->id)
-            ->where('habit_logs.status', true)
-            ->whereBetween('habit_logs.date', [$weeklyStart->toDateString(), $today->toDateString()])
-            ->count();
+        $completedToday = 0;
+        $completedWeekly = 0;
+        $completedMonthly = 0;
+        $possibleToday = 0;
+        $possibleWeekly = 0;
+        $possibleMonthly = 0;
 
-        $completedMonthly = HabitLog::query()
-            ->join('habits', 'habit_logs.habit_id', '=', 'habits.id')
-            ->where('habits.user_id', $user->id)
-            ->where('habit_logs.status', true)
-            ->whereBetween('habit_logs.date', [$monthStart->toDateString(), $monthEnd->toDateString()])
-            ->count();
+        foreach ($habits as $habit) {
+            $logs = $logsByHabit->get($habit->id, collect());
+            $todayLogs = $logs->filter(fn ($log) => $log->date->toDateString() === $today->toDateString());
 
-        $dailyPercent = $habitCount > 0
-            ? (int) round(($completedToday / $habitCount) * 100)
-            : 0;
-        $weeklyPercent = $habitCount > 0
-            ? (int) round(($completedWeekly / ($habitCount * 7)) * 100)
-            : 0;
-        $monthlyPercent = $habitCount > 0
-            ? (int) round(($completedMonthly / ($habitCount * $daysInMonth)) * 100)
-            : 0;
+            $scoreWeekly = $analytics->calculateScore($habit, $logs, $today, 7);
+            $scoreMonthly = $analytics->calculateScore($habit, $logs, $today, $daysInMonth);
+
+            $completedWeekly += $scoreWeekly['completed'];
+            $possibleWeekly += $scoreWeekly['possible'];
+            $completedMonthly += $scoreMonthly['completed'];
+            $possibleMonthly += $scoreMonthly['possible'];
+
+            $todayScore = $analytics->calculateScore($habit, $todayLogs, $today, 1);
+            if ($todayScore['possible'] > 0) {
+                $possibleToday++;
+                if ($todayScore['completed'] > 0) {
+                    $completedToday++;
+                }
+            }
+        }
+
+        $dailyPercent = $possibleToday > 0 ? (int) round(($completedToday / $possibleToday) * 100) : 0;
+        $weeklyPercent = $possibleWeekly > 0 ? (int) round(($completedWeekly / $possibleWeekly) * 100) : 0;
+        $monthlyPercent = $possibleMonthly > 0 ? (int) round(($completedMonthly / $possibleMonthly) * 100) : 0;
 
         return [
             'dailyPercent' => $dailyPercent,
@@ -75,7 +92,7 @@ class StatisticsController extends Controller
         ];
     }
 
-    public function habitStats(Request $request, Carbon $today = null): array
+    public function habitStats(Request $request, Carbon $today = null, ?HabitAnalyticsService $analytics = null): array
     {
         $today = $today ?? Carbon::today();
         $user = $request->user();
@@ -85,43 +102,28 @@ class StatisticsController extends Controller
             return [];
         }
 
-        $weeklyStart = $today->copy()->subDays(6);
+        $analytics = $analytics ?? app(HabitAnalyticsService::class);
         $monthStart = $today->copy()->startOfMonth();
-        $monthEnd = $today->copy()->endOfMonth();
-        $daysInMonth = (int) $today->daysInMonth;
-
-        $weeklyCounts = HabitLog::query()
-            ->join('habits', 'habit_logs.habit_id', '=', 'habits.id')
-            ->where('habits.user_id', $user->id)
-            ->where('habit_logs.status', true)
-            ->whereBetween('habit_logs.date', [$weeklyStart->toDateString(), $today->toDateString()])
-            ->select('habit_logs.habit_id', DB::raw('count(*) as total'))
-            ->groupBy('habit_logs.habit_id')
+        $habitIds = $habits->pluck('id');
+        $logsByHabit = HabitLog::query()
+            ->whereIn('habit_id', $habitIds)
+            ->whereBetween('date', [$monthStart->toDateString(), $today->toDateString()])
             ->get()
-            ->keyBy('habit_id');
-
-        $monthlyCounts = HabitLog::query()
-            ->join('habits', 'habit_logs.habit_id', '=', 'habits.id')
-            ->where('habits.user_id', $user->id)
-            ->where('habit_logs.status', true)
-            ->whereBetween('habit_logs.date', [$monthStart->toDateString(), $monthEnd->toDateString()])
-            ->select('habit_logs.habit_id', DB::raw('count(*) as total'))
-            ->groupBy('habit_logs.habit_id')
-            ->get()
-            ->keyBy('habit_id');
+            ->groupBy('habit_id');
 
         $stats = [];
         foreach ($habits as $habit) {
-            $weeklyTotal = isset($weeklyCounts[$habit->id]) ? (int) $weeklyCounts[$habit->id]->total : 0;
-            $monthlyTotal = isset($monthlyCounts[$habit->id]) ? (int) $monthlyCounts[$habit->id]->total : 0;
+            $logs = $logsByHabit->get($habit->id, collect());
+            $weeklyScore = $analytics->calculateScore($habit, $logs, $today, 7);
+            $monthlyScore = $analytics->calculateScore($habit, $logs, $today, (int) $today->daysInMonth);
 
             $stats[] = [
                 'id' => $habit->id,
                 'title' => $habit->title,
                 'description' => $habit->description,
-                'frequency' => $habit->frequency,
-                'weeklyPercent' => (int) round(($weeklyTotal / 7) * 100),
-                'monthlyPercent' => $daysInMonth > 0 ? (int) round(($monthlyTotal / $daysInMonth) * 100) : 0,
+                'frequency' => $habit->frequency_label ?? $habit->frequency,
+                'weeklyPercent' => $weeklyScore['score'],
+                'monthlyPercent' => $monthlyScore['score'],
             ];
         }
 

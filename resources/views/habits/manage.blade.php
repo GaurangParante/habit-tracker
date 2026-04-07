@@ -39,13 +39,15 @@
                                     <div class="text-muted small">{{ $habit->description ?? 'No description' }}</div>
                                 </td>
                                 <td>
-                                    <span class="badge text-bg-light text-uppercase">{{ $habit->frequency }}</span>
+                                    <span class="badge text-bg-light text-uppercase">{{ $habit->frequency_label ?? $habit->frequency }}</span>
+                                    <div class="text-muted small mt-1">Target: {{ $habit->target_per_day }} / day</div>
                                 </td>
                                 <td class="text-end">
                                     <a href="{{ route('habits.edit', $habit) }}" class="btn btn-outline-secondary btn-sm">
                                         <i class="fa-solid fa-pen-to-square me-1"></i>Edit
                                     </a>
-                                    <form method="POST" action="{{ route('habits.destroy', $habit) }}" class="d-inline">
+                                    <form method="POST" action="{{ route('habits.destroy', $habit) }}" class="d-inline"
+                                        onsubmit="return confirm('Delete this habit? This cannot be undone.');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-outline-danger btn-sm">
