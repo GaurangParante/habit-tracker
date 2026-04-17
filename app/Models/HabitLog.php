@@ -16,7 +16,6 @@ class HabitLog extends Model
 
     protected $casts = [
         'date' => 'date',
-        'status' => 'boolean',
         'count' => 'integer',
     ];
 

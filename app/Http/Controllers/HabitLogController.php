@@ -15,7 +15,7 @@ class HabitLogController extends Controller
         $validated = $request->validate([
             'habit_id' => ['required', 'integer', 'exists:habits,id'],
             'date' => ['required', 'date'],
-            'status' => ['required', 'boolean'],
+            'status' => ['required', 'in:pending,completed,missed'],
             'count' => ['nullable', 'integer', 'min:0'],
         ]);
 
@@ -24,13 +24,27 @@ class HabitLogController extends Controller
         $target = max(1, (int) $habit->target_per_day);
         $count = isset($validated['count'])
             ? (int) $validated['count']
-            : ((bool) $validated['status'] ? $target : 0);
-        $status = $count >= $target;
+            : ($validated['status'] === 'completed' ? $target : 0);
+        $status = $count >= $target ? 'completed' : $validated['status'];
 
-        $log = HabitLog::updateOrCreate(
-            ['habit_id' => $habit->id, 'date' => $date],
-            ['status' => $status, 'count' => $count]
-        );
+        $log = HabitLog::query()
+            ->where('habit_id', $habit->id)
+            ->whereDate('date', $date)
+            ->first();
+
+        if ($log) {
+            $log->fill([
+                'status' => $status,
+                'count' => $count,
+            ])->save();
+        } else {
+            $log = HabitLog::create([
+                'habit_id' => $habit->id,
+                'date' => $date,
+                'status' => $status,
+                'count' => $count,
+            ]);
+        }
 
         $analytics->updateHabitStreaks($habit);
         $analytics->syncAchievements($request->user());

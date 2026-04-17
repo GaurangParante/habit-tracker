@@ -28,8 +28,8 @@
                 <a class="btn btn-habit" href="{{ route('habits.create') }}">Create Your First Habit</a>
             </div>
         @else
-            <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
+            <div class="table-responsive dashboard-table-wrap">
+                <table class="table table-striped table-hover align-middle dashboard-habits-table">
                     <thead>
                         <tr class="text-muted small text-uppercase">
                             <th>Habit</th>
@@ -43,14 +43,22 @@
                     <tbody>
                         @foreach ($habits as $habit)
                             <tr>
-                                <td>
+                                <td class="dashboard-habit-main">
                                     <div class="fw-semibold">{{ $habit->title }}</div>
                                     <div class="text-muted small">{{ $habit->description ?? 'No description' }}</div>
                                     <span class="badge text-bg-light text-uppercase mt-2">{{ $habit->frequency_label ?? $habit->frequency }}</span>
                                     <div class="text-muted small mt-2">Target: {{ $habit->target_per_day }} / day</div>
                                 </td>
                                 <td class="text-center">
-                                    <span class="habit-status-label small">Pending</span>
+                                    @php
+                                        $statusBadgeMap = [
+                                            'pending' => ['label' => 'Pending', 'class' => 'text-bg-warning'],
+                                            'completed' => ['label' => 'Completed', 'class' => 'text-bg-success'],
+                                            'missed' => ['label' => 'Missed', 'class' => 'text-bg-danger'],
+                                        ];
+                                        $statusBadge = $statusBadgeMap[$habit->today_status] ?? $statusBadgeMap['pending'];
+                                    @endphp
+                                    <span class="habit-status-label badge {{ $statusBadge['class'] }}">{{ $statusBadge['label'] }}</span>
                                     <div class="text-muted small mt-1">Missed {{ $habit->missed_this_week }}x this week</div>
                                 </td>
                                 <td class="text-center">
@@ -63,7 +71,7 @@
                                     <div class="text-muted small">{{ $habit->score_label }}</div>
                                 </td>
                                 <td class="text-center">
-                                    <div class="d-flex align-items-center justify-content-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center gap-2 flex-wrap dashboard-progress-controls">
                                         <button class="btn btn-outline-secondary btn-sm habit-count-btn" type="button"
                                             data-action="decrease" data-habit-id="{{ $habit->id }}">
                                             <i class="fa-solid fa-minus"></i>
@@ -84,7 +92,8 @@
                                         <input class="habit-toggle-input habit-toggle" type="checkbox"
                                             id="toggle-{{ $habit->id }}"
                                             data-habit-id="{{ $habit->id }}"
-                                            @checked((bool) $habit->today_status)>
+                                            data-current-status="{{ $habit->today_status }}"
+                                            @checked($habit->today_status === 'completed')>
                                         <label class="habit-toggle-control" for="toggle-{{ $habit->id }}"
                                             aria-label="Toggle habit completion">
                                             <span class="toggle-handle"></span>
@@ -181,31 +190,70 @@
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             const todayDate = "{{ $today->toDateString() }}";
 
+            function priorityBadgeClass(priority) {
+                if (priority === 'high') return 'text-bg-danger';
+                if (priority === 'medium') return 'text-bg-warning';
+                return 'text-bg-success';
+            }
+
+            function createTodoCard(todo, options = {}) {
+                const card = document.createElement('div');
+                const isOverdue = !!options.isOverdue;
+                card.className = `todo-card border rounded-4 p-3 d-flex flex-column flex-md-row justify-content-between gap-3 ${isOverdue ? 'border-danger' : ''}`;
+                card.dataset.status = todo.status ?? 'pending';
+                card.dataset.dueDate = todo.due_date ?? '';
+
+                card.innerHTML = `
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-2 todo-badges">
+                            <span class="badge ${priorityBadgeClass(todo.priority)}">${(todo.priority ?? 'medium').charAt(0).toUpperCase() + (todo.priority ?? 'medium').slice(1)}</span>
+                            ${todo.due_date ? `<span class="text-muted small">Due ${todo.due_date}</span>` : ''}
+                            ${isOverdue ? '<span class="badge text-bg-danger" data-overdue-badge="true">Overdue</span>' : ''}
+                        </div>
+                        <div class="fw-semibold">${todo.title}</div>
+                        ${todo.description ? `<div class="text-muted small">${todo.description}</div>` : ''}
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input todo-toggle" type="checkbox" role="switch" data-todo-id="${todo.id}" ${todo.status === 'completed' ? 'checked' : ''}>
+                        </div>
+                    </div>
+                `;
+
+                bindTodoToggle(card.querySelector('.todo-toggle'));
+
+                return card;
+            }
+
             function updateStatusLabel(toggle) {
                 const row = toggle.closest('tr');
                 const label = row ? row.querySelector('.habit-status-label') : null;
                 if (!label) {
                     return;
                 }
-                if (toggle.checked) {
-                    label.textContent = 'Completed';
-                    label.classList.add('is-complete');
-                } else {
-                    label.textContent = 'Pending';
-                    label.classList.remove('is-complete');
-                }
+                const status = toggle.dataset.currentStatus || (toggle.checked ? 'completed' : 'pending');
+                const configs = {
+                    pending: { text: 'Pending', classes: ['text-bg-warning'] },
+                    completed: { text: 'Completed', classes: ['text-bg-success', 'is-complete'] },
+                    missed: { text: 'Missed', classes: ['text-bg-danger'] },
+                };
+                const config = configs[status] || configs.pending;
+                label.textContent = config.text;
+                label.className = 'habit-status-label badge';
+                config.classes.forEach((className) => label.classList.add(className));
             }
 
             document.querySelectorAll('.habit-toggle').forEach((toggle) => {
                 updateStatusLabel(toggle);
                 toggle.addEventListener('change', async (event) => {
                     const habitId = event.target.dataset.habitId;
-                    const status = event.target.checked ? 1 : 0;
+                    const status = event.target.checked ? 'completed' : 'pending';
 
                     const response = await fetch("{{ route('habits.toggle') }}", {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,
                         },
                         body: JSON.stringify({ habit_id: habitId, date: todayDate, status }),
@@ -223,6 +271,8 @@
                     if (countDisplay && typeof data.count !== 'undefined') {
                         countDisplay.textContent = data.count;
                     }
+                    event.target.dataset.currentStatus = data.status;
+                    event.target.checked = data.status === 'completed';
                     updateStatusLabel(event.target);
                 });
             });
@@ -263,9 +313,10 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,
                         },
-                        body: JSON.stringify({ habit_id: habitId, date: todayDate, status: count > 0 ? 1 : 0, count }),
+                        body: JSON.stringify({ habit_id: habitId, date: todayDate, status: count > 0 ? 'completed' : 'pending', count }),
                     });
 
                     if (!response.ok) {
@@ -275,7 +326,8 @@
 
                     const data = await response.json();
                     countDisplay.textContent = data.count ?? count;
-                    toggle.checked = data.status ?? count > 0;
+                    toggle.dataset.currentStatus = data.status ?? (count > 0 ? 'completed' : 'pending');
+                    toggle.checked = (data.status ?? (count > 0 ? 'completed' : 'pending')) === 'completed';
                     updateStatusLabel(toggle);
                     syncPlusButtons();
                 });
@@ -296,6 +348,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,
                         },
                         body: JSON.stringify(payload),
@@ -306,7 +359,19 @@
                         return;
                     }
 
-                    window.location.reload();
+                    const data = await response.json();
+                    const wrap = document.getElementById('todayTodosList');
+                    const empty = wrap ? wrap.querySelector('[data-empty]') : null;
+                    if (empty) empty.remove();
+                    if (wrap && data.todo) {
+                        const todo = {
+                            ...data.todo,
+                            status: 'pending',
+                            due_date: data.todo.due_date ? data.todo.due_date.substring(0, 10) : todayDate,
+                        };
+                        wrap.prepend(createTodoCard(todo));
+                    }
+                    quickTodoForm.reset();
                 });
             }
 
@@ -334,13 +399,17 @@
                 });
             }
 
-            document.querySelectorAll('.todo-toggle').forEach((toggle) => {
+            function bindTodoToggle(toggle) {
+                if (!toggle || toggle.dataset.bound === 'true') return;
+                toggle.dataset.bound = 'true';
                 toggle.addEventListener('change', async (event) => {
+                    event.preventDefault();
                     const todoId = event.target.dataset.todoId;
                     const response = await fetch("{{ route('todos.toggle') }}", {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,
                         },
                         body: JSON.stringify({ todo_id: todoId }),
@@ -388,7 +457,44 @@
 
                     syncDashboardTodoEmptyStates();
                 });
+            }
+
+            document.querySelectorAll('.todo-toggle').forEach((toggle) => {
+                bindTodoToggle(toggle);
             });
         </script>
+        <style>
+            .dashboard-table-wrap {
+                overflow-x: auto;
+            }
+
+            .dashboard-habits-table {
+                width: 100%;
+                table-layout: fixed;
+            }
+
+            .dashboard-habits-table td,
+            .dashboard-habits-table th {
+                white-space: normal;
+                word-break: break-word;
+            }
+
+            .dashboard-habit-main {
+                width: 28%;
+            }
+
+            .dashboard-progress-controls {
+                min-width: 0;
+            }
+
+            @media (min-width: 1200px) {
+                .dashboard-habits-table th:nth-child(1) { width: 28%; }
+                .dashboard-habits-table th:nth-child(2) { width: 14%; }
+                .dashboard-habits-table th:nth-child(3) { width: 12%; }
+                .dashboard-habits-table th:nth-child(4) { width: 12%; }
+                .dashboard-habits-table th:nth-child(5) { width: 20%; }
+                .dashboard-habits-table th:nth-child(6) { width: 14%; }
+            }
+        </style>
     @endpush
 </x-app-layout>

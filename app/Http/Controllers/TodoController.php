@@ -83,6 +83,13 @@ class TodoController extends Controller
         return response()->json([
             'success' => true,
             'status' => $todo->status,
+            'todo' => [
+                'id' => $todo->id,
+                'title' => $todo->title,
+                'description' => $todo->description,
+                'priority' => $todo->priority,
+                'due_date' => optional($todo->due_date)->format('Y-m-d'),
+            ],
         ]);
     }
 

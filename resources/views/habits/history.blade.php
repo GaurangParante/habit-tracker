@@ -63,13 +63,17 @@
                                     </td>
                                     <td>{{ $habit->history_date }}</td>
                                     <td class="text-end">
-                                        @if ($habit->history_status)
+                                        @if ($habit->history_status === 'completed')
                                             <span class="badge text-bg-success">
                                                 <i class="fa-solid fa-check me-1"></i>Completed
                                             </span>
-                                        @else
+                                        @elseif ($habit->history_status === 'missed')
                                             <span class="badge text-bg-danger">
                                                 <i class="fa-solid fa-xmark me-1"></i>Missed
+                                            </span>
+                                        @else
+                                            <span class="badge text-bg-warning">
+                                                <i class="fa-solid fa-clock me-1"></i>Pending
                                             </span>
                                         @endif
                                     </td>
@@ -113,13 +117,17 @@
                                             </td>
                                             <td>{{ $row['date'] }}</td>
                                             <td class="text-end">
-                                                @if ($row['completed'])
+                                                @if ($row['status'] === 'completed')
                                                     <span class="badge text-bg-success">
                                                         <i class="fa-solid fa-check me-1"></i>Completed
                                                     </span>
-                                                @else
+                                                @elseif ($row['status'] === 'missed')
                                                     <span class="badge text-bg-danger">
                                                         <i class="fa-solid fa-xmark me-1"></i>Missed
+                                                    </span>
+                                                @else
+                                                    <span class="badge text-bg-warning">
+                                                        <i class="fa-solid fa-clock me-1"></i>Pending
                                                     </span>
                                                 @endif
                                             </td>

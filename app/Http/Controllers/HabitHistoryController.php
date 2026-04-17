@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Habit;
 use App\Models\HabitLog;
+use App\Services\HabitAnalyticsService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
@@ -59,6 +60,7 @@ class HabitHistoryController extends Controller
 
     private function singleDateView(Request $request, Carbon $selectedDate, Carbon $today)
     {
+        $analytics = app(HabitAnalyticsService::class);
         $rows = Habit::query()
             ->where('habits.user_id', $request->user()->id)
             ->leftJoin('habit_logs', function ($join) use ($selectedDate) {
@@ -73,11 +75,12 @@ class HabitHistoryController extends Controller
             ])
             ->orderBy('habits.created_at')
             ->get()
-            ->map(function (Habit $habit) use ($selectedDate) {
-                $completed = $this->joinedLogIsCompleted($habit);
+            ->map(function (Habit $habit) use ($selectedDate, $analytics) {
+                $status = $this->joinedLogStatus($habit, $selectedDate, $analytics);
                 $habit->history_date = $selectedDate->toDateString();
-                $habit->history_status = $completed;
-                $habit->history_label = $completed ? 'Completed' : 'Missed';
+                $habit->history_status = $status;
+                $habit->history_label = ucfirst($status);
+
                 return $habit;
             });
 
@@ -94,6 +97,7 @@ class HabitHistoryController extends Controller
 
     private function rangeView(Request $request, Carbon $rangeStart, Carbon $rangeEnd, Carbon $today)
     {
+        $analytics = app(HabitAnalyticsService::class);
         $habits = $request->user()->habits()->orderBy('created_at')->get();
 
         $logs = HabitLog::query()
@@ -112,15 +116,15 @@ class HabitHistoryController extends Controller
 
             foreach ($habits as $habit) {
                 $log = $dayLogs->get($habit->id);
-                $completed = $this->logIsCompleted($habit, $log);
-                if ($completed) {
+                $status = $analytics->resolveStatusForDate($habit, $log, $date);
+                if ($status === 'completed') {
                     $completedCount++;
                 }
                 $rows[] = [
                     'habit' => $habit,
                     'date' => $dateKey,
-                    'completed' => $completed,
-                    'label' => $completed ? 'Completed' : 'Missed',
+                    'status' => $status,
+                    'label' => ucfirst($status),
                 ];
             }
 
@@ -144,29 +148,18 @@ class HabitHistoryController extends Controller
         ]);
     }
 
-    private function joinedLogIsCompleted(Habit $habit): bool
+    private function joinedLogStatus(Habit $habit, Carbon $date, HabitAnalyticsService $analytics): string
     {
         if (! $habit->log_date) {
-            return false;
+            return $analytics->isDateEligibleForStatus($habit, $date) && $date->isPast() ? 'missed' : 'pending';
         }
 
-        $target = max(1, (int) $habit->target_per_day);
-        $count = (int) ($habit->log_count ?? 0);
-        $status = (bool) ($habit->log_status ?? false);
+        $log = new HabitLog([
+            'date' => $habit->log_date,
+            'count' => (int) ($habit->log_count ?? 0),
+            'status' => $habit->log_status,
+        ]);
 
-        return $count >= $target || $status;
-    }
-
-    private function logIsCompleted(Habit $habit, ?HabitLog $log): bool
-    {
-        if (! $log) {
-            return false;
-        }
-
-        $target = max(1, (int) $habit->target_per_day);
-        $count = (int) ($log->count ?? 0);
-        $status = (bool) ($log->status ?? false);
-
-        return $count >= $target || $status;
+        return $analytics->resolveStatusForDate($habit, $log, $date);
     }
 }
