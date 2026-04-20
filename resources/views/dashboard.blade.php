@@ -45,8 +45,12 @@
                             <tr>
                                 <td class="dashboard-habit-main">
                                     <div class="fw-semibold">{{ $habit->title }}</div>
-                                    <div class="text-muted small">{{ $habit->description ?? 'No description' }}</div>
-                                    <span class="badge text-bg-light text-uppercase mt-2">{{ $habit->frequency_label ?? $habit->frequency }}</span>
+                                    @if ($habit->description)
+                                        <div class="text-muted small">{{ $habit->description ?? 'No description' }}
+                                        </div>
+                                    @endif
+                                    <span
+                                        class="badge text-bg-light text-uppercase mt-2">{{ $habit->frequency_label ?? $habit->frequency }}</span>
                                     <div class="text-muted small mt-2">Target: {{ $habit->target_per_day }} / day</div>
                                 </td>
                                 <td class="text-center">
@@ -56,10 +60,13 @@
                                             'completed' => ['label' => 'Completed', 'class' => 'text-bg-success'],
                                             'missed' => ['label' => 'Missed', 'class' => 'text-bg-danger'],
                                         ];
-                                        $statusBadge = $statusBadgeMap[$habit->today_status] ?? $statusBadgeMap['pending'];
+                                        $statusBadge =
+                                            $statusBadgeMap[$habit->today_status] ?? $statusBadgeMap['pending'];
                                     @endphp
-                                    <span class="habit-status-label badge {{ $statusBadge['class'] }}">{{ $statusBadge['label'] }}</span>
-                                    <div class="text-muted small mt-1">Missed {{ $habit->missed_this_week }}x this week</div>
+                                    <span
+                                        class="habit-status-label badge {{ $statusBadge['class'] }}">{{ $statusBadge['label'] }}</span>
+                                    <div class="text-muted small mt-1">Missed {{ $habit->missed_this_week }}x this week
+                                    </div>
                                 </td>
                                 <td class="text-center">
                                     <div class="fw-semibold">{{ $habit->current_streak }}</div>
@@ -71,7 +78,8 @@
                                     <div class="text-muted small">{{ $habit->score_label }}</div>
                                 </td>
                                 <td class="text-center">
-                                    <div class="d-flex align-items-center justify-content-center gap-2 flex-wrap dashboard-progress-controls">
+                                    <div
+                                        class="d-flex align-items-center justify-content-center gap-2 flex-wrap dashboard-progress-controls">
                                         <button class="btn btn-outline-secondary btn-sm habit-count-btn" type="button"
                                             data-action="decrease" data-habit-id="{{ $habit->id }}">
                                             <i class="fa-solid fa-minus"></i>
@@ -90,8 +98,7 @@
                                 <td class="text-end">
                                     <div class="habit-toggle-wrap d-inline-block">
                                         <input class="habit-toggle-input habit-toggle" type="checkbox"
-                                            id="toggle-{{ $habit->id }}"
-                                            data-habit-id="{{ $habit->id }}"
+                                            id="toggle-{{ $habit->id }}" data-habit-id="{{ $habit->id }}"
                                             data-current-status="{{ $habit->today_status }}"
                                             @checked($habit->today_status === 'completed')>
                                         <label class="habit-toggle-control" for="toggle-{{ $habit->id }}"
@@ -125,7 +132,8 @@
                             <div class="border rounded-4 px-3 py-2">
                                 <div class="fw-semibold">{{ $achievement->name }}</div>
                                 <div class="text-muted small">{{ $achievement->description }}</div>
-                                <div class="text-muted small">Unlocked {{ optional($achievement->pivot->unlocked_at)->format('M j, Y') }}</div>
+                                <div class="text-muted small">Unlocked
+                                    {{ optional($achievement->pivot->unlocked_at)->format('M j, Y') }}</div>
                             </div>
                         @endforeach
                     </div>
@@ -199,7 +207,8 @@
             function createTodoCard(todo, options = {}) {
                 const card = document.createElement('div');
                 const isOverdue = !!options.isOverdue;
-                card.className = `todo-card border rounded-4 p-3 d-flex flex-column flex-md-row justify-content-between gap-3 ${isOverdue ? 'border-danger' : ''}`;
+                card.className =
+                    `todo-card border rounded-4 p-3 d-flex flex-column flex-md-row justify-content-between gap-3 ${isOverdue ? 'border-danger' : ''}`;
                 card.dataset.status = todo.status ?? 'pending';
                 card.dataset.dueDate = todo.due_date ?? '';
 
@@ -233,9 +242,18 @@
                 }
                 const status = toggle.dataset.currentStatus || (toggle.checked ? 'completed' : 'pending');
                 const configs = {
-                    pending: { text: 'Pending', classes: ['text-bg-warning'] },
-                    completed: { text: 'Completed', classes: ['text-bg-success', 'is-complete'] },
-                    missed: { text: 'Missed', classes: ['text-bg-danger'] },
+                    pending: {
+                        text: 'Pending',
+                        classes: ['text-bg-warning']
+                    },
+                    completed: {
+                        text: 'Completed',
+                        classes: ['text-bg-success', 'is-complete']
+                    },
+                    missed: {
+                        text: 'Missed',
+                        classes: ['text-bg-danger']
+                    },
                 };
                 const config = configs[status] || configs.pending;
                 label.textContent = config.text;
@@ -256,7 +274,11 @@
                             'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,
                         },
-                        body: JSON.stringify({ habit_id: habitId, date: todayDate, status }),
+                        body: JSON.stringify({
+                            habit_id: habitId,
+                            date: todayDate,
+                            status
+                        }),
                     });
 
                     if (!response.ok) {
@@ -316,7 +338,12 @@
                             'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,
                         },
-                        body: JSON.stringify({ habit_id: habitId, date: todayDate, status: count > 0 ? 'completed' : 'pending', count }),
+                        body: JSON.stringify({
+                            habit_id: habitId,
+                            date: todayDate,
+                            status: count > 0 ? 'completed' : 'pending',
+                            count
+                        }),
                     });
 
                     if (!response.ok) {
@@ -376,9 +403,14 @@
             }
 
             function syncDashboardTodoEmptyStates() {
-                const groups = [
-                    { id: 'todayTodosList', emptyText: 'No tasks due today.' },
-                    { id: 'overdueTodosList', emptyText: 'Nothing overdue.' },
+                const groups = [{
+                        id: 'todayTodosList',
+                        emptyText: 'No tasks due today.'
+                    },
+                    {
+                        id: 'overdueTodosList',
+                        emptyText: 'Nothing overdue.'
+                    },
                 ];
 
                 groups.forEach((group) => {
@@ -412,7 +444,9 @@
                             'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,
                         },
-                        body: JSON.stringify({ todo_id: todoId }),
+                        body: JSON.stringify({
+                            todo_id: todoId
+                        }),
                     });
 
                     if (!response.ok) {
@@ -488,12 +522,29 @@
             }
 
             @media (min-width: 1200px) {
-                .dashboard-habits-table th:nth-child(1) { width: 28%; }
-                .dashboard-habits-table th:nth-child(2) { width: 14%; }
-                .dashboard-habits-table th:nth-child(3) { width: 12%; }
-                .dashboard-habits-table th:nth-child(4) { width: 12%; }
-                .dashboard-habits-table th:nth-child(5) { width: 20%; }
-                .dashboard-habits-table th:nth-child(6) { width: 14%; }
+                .dashboard-habits-table th:nth-child(1) {
+                    width: 28%;
+                }
+
+                .dashboard-habits-table th:nth-child(2) {
+                    width: 14%;
+                }
+
+                .dashboard-habits-table th:nth-child(3) {
+                    width: 12%;
+                }
+
+                .dashboard-habits-table th:nth-child(4) {
+                    width: 12%;
+                }
+
+                .dashboard-habits-table th:nth-child(5) {
+                    width: 20%;
+                }
+
+                .dashboard-habits-table th:nth-child(6) {
+                    width: 14%;
+                }
             }
         </style>
     @endpush
