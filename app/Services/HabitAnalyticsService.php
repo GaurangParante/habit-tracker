@@ -113,22 +113,24 @@ class HabitAnalyticsService
     {
         $today = ($today ?? Carbon::today())->startOfDay();
         $weekStart = $today->copy()->startOfWeek();
+        $weekEnd = $today->copy()->subDay();
         $logs = $logs ?? $habit->logs()->whereBetween('date', [$weekStart->toDateString(), $today->toDateString()])->get();
         $completed = $this->completedDateSet($habit, $logs);
 
         if ($this->isTimesPerWeek($habit)) {
             $target = max(1, (int) ($habit->frequency_value['times'] ?? 1));
             $completedDays = 0;
-            foreach (CarbonPeriod::create($weekStart, $today) as $date) {
+            foreach (CarbonPeriod::create($weekStart, $weekEnd) as $date) {
                 if (isset($completed[$date->toDateString()])) {
                     $completedDays++;
                 }
             }
+
             return max(0, $target - $completedDays);
         }
 
         $missed = 0;
-        foreach (CarbonPeriod::create($weekStart, $today) as $date) {
+        foreach (CarbonPeriod::create($weekStart, $weekEnd) as $date) {
             if (! $this->isScheduledDate($habit, $date)) {
                 continue;
             }
@@ -180,6 +182,7 @@ class HabitAnalyticsService
                     if (isset($completedSets[$habit->id][$date->toDateString()])) {
                         $stats[$label]['completed']++;
                     }
+
                     continue;
                 }
 
@@ -344,10 +347,37 @@ class HabitAnalyticsService
         return $streaks;
     }
 
+    public function resolveStatusForDate(Habit $habit, ?HabitLog $log, Carbon $date): string
+    {
+        if (! $this->isDateEligibleForStatus($habit, $date)) {
+            return 'pending';
+        }
+
+        if (! $log) {
+            return $date->isPast() ? 'missed' : 'pending';
+        }
+
+        if ($this->isCompleted($habit, $log)) {
+            return 'completed';
+        }
+
+        return $log->status === 'missed' || $date->isPast() ? 'missed' : 'pending';
+    }
+
+    public function isDateEligibleForStatus(Habit $habit, Carbon $date): bool
+    {
+        if ($this->isTimesPerWeek($habit)) {
+            return false;
+        }
+
+        return $this->isScheduledDate($habit, $date);
+    }
+
     private function isCompleted(Habit $habit, HabitLog $log): bool
     {
         $target = max(1, (int) $habit->target_per_day);
-        return (int) $log->count >= $target || (bool) $log->status;
+
+        return (int) $log->count >= $target || $log->status === 'completed';
     }
 
     private function completedDateSet(Habit $habit, Collection $logs): array
@@ -369,11 +399,13 @@ class HabitAnalyticsService
 
         if ($type === 'days_of_week') {
             $day = strtolower($date->format('D'));
+
             return in_array($day, $value, true);
         }
 
         if ($type === 'monthly') {
             $day = $value['day'] ?? $habit->created_at?->day ?? 1;
+
             return (int) $date->day === (int) $day;
         }
 

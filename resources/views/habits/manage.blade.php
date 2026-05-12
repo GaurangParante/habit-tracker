@@ -36,14 +36,19 @@
                             <tr>
                                 <td>
                                     <div class="fw-semibold">{{ $habit->title }}</div>
-                                    <div class="text-muted small">{{ $habit->description ?? 'No description' }}</div>
+                                    @if ($habit->description)
+                                        <div class="text-muted small">{{ $habit->description ?? 'No description' }}
+                                        </div>
+                                    @endif
                                 </td>
                                 <td>
-                                    <span class="badge text-bg-light text-uppercase">{{ $habit->frequency_label ?? $habit->frequency }}</span>
+                                    <span
+                                        class="badge text-bg-light text-uppercase">{{ $habit->frequency_label ?? $habit->frequency }}</span>
                                     <div class="text-muted small mt-1">Target: {{ $habit->target_per_day }} / day</div>
                                 </td>
                                 <td class="text-end">
-                                    <a href="{{ route('habits.edit', $habit) }}" class="btn btn-outline-secondary btn-sm">
+                                    <a href="{{ route('habits.edit', $habit) }}"
+                                        class="btn btn-outline-secondary btn-sm">
                                         <i class="fa-solid fa-pen-to-square me-1"></i>Edit
                                     </a>
                                     <form method="POST" action="{{ route('habits.destroy', $habit) }}" class="d-inline"

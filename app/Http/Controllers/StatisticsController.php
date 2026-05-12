@@ -36,10 +36,22 @@ class StatisticsController extends Controller
         $habits = $user->habits()->get();
         $habitCount = $habits->count();
 
+        $previousDay = $today->copy()->subDay();
+        $previousWeekEnd = $today->copy()->subDay();
+        $previousWeekStart = $previousWeekEnd->copy()->subDays(6);
+        $previousMonthEnd = $today->copy()->subMonthNoOverflow()->endOfMonth();
+        $previousMonthStart = $previousMonthEnd->copy()->startOfMonth();
+        $previousMonthDays = (int) $previousMonthEnd->daysInMonth;
+
         $weeklyStart = $today->copy()->subDays(6);
         $monthStart = $today->copy()->startOfMonth();
         $daysInMonth = (int) $today->daysInMonth;
-        $rangeStart = $monthStart->lt($weeklyStart) ? $monthStart : $weeklyStart;
+        $rangeStart = $monthStart->copy();
+        foreach ([$weeklyStart, $previousDay, $previousWeekStart, $previousMonthStart] as $candidate) {
+            if ($candidate->lt($rangeStart)) {
+                $rangeStart = $candidate->copy();
+            }
+        }
 
         $habitIds = $habits->pluck('id');
         $logsByHabit = HabitLog::query()
@@ -54,6 +66,12 @@ class StatisticsController extends Controller
         $possibleToday = 0;
         $possibleWeekly = 0;
         $possibleMonthly = 0;
+        $completedPreviousDay = 0;
+        $possiblePreviousDay = 0;
+        $completedPreviousWeek = 0;
+        $possiblePreviousWeek = 0;
+        $completedPreviousMonth = 0;
+        $possiblePreviousMonth = 0;
 
         foreach ($habits as $habit) {
             $logs = $logsByHabit->get($habit->id, collect());
@@ -61,11 +79,17 @@ class StatisticsController extends Controller
 
             $scoreWeekly = $analytics->calculateScore($habit, $logs, $today, 7);
             $scoreMonthly = $analytics->calculateScore($habit, $logs, $today, $daysInMonth);
+            $scorePreviousWeek = $analytics->calculateScore($habit, $logs, $previousWeekEnd, 7);
+            $scorePreviousMonth = $analytics->calculateScore($habit, $logs, $previousMonthEnd, $previousMonthDays);
 
             $completedWeekly += $scoreWeekly['completed'];
             $possibleWeekly += $scoreWeekly['possible'];
             $completedMonthly += $scoreMonthly['completed'];
             $possibleMonthly += $scoreMonthly['possible'];
+            $completedPreviousWeek += $scorePreviousWeek['completed'];
+            $possiblePreviousWeek += $scorePreviousWeek['possible'];
+            $completedPreviousMonth += $scorePreviousMonth['completed'];
+            $possiblePreviousMonth += $scorePreviousMonth['possible'];
 
             $todayScore = $analytics->calculateScore($habit, $todayLogs, $today, 1);
             if ($todayScore['possible'] > 0) {
@@ -74,16 +98,33 @@ class StatisticsController extends Controller
                     $completedToday++;
                 }
             }
+
+            $previousDayScore = $analytics->calculateScore($habit, $logs, $previousDay, 1);
+            if ($previousDayScore['possible'] > 0) {
+                $possiblePreviousDay++;
+                if ($previousDayScore['completed'] > 0) {
+                    $completedPreviousDay++;
+                }
+            }
         }
 
         $dailyPercent = $possibleToday > 0 ? (int) round(($completedToday / $possibleToday) * 100) : 0;
         $weeklyPercent = $possibleWeekly > 0 ? (int) round(($completedWeekly / $possibleWeekly) * 100) : 0;
         $monthlyPercent = $possibleMonthly > 0 ? (int) round(($completedMonthly / $possibleMonthly) * 100) : 0;
+        $previousDailyPercent = $possiblePreviousDay > 0 ? (int) round(($completedPreviousDay / $possiblePreviousDay) * 100) : 0;
+        $previousWeeklyPercent = $possiblePreviousWeek > 0 ? (int) round(($completedPreviousWeek / $possiblePreviousWeek) * 100) : 0;
+        $previousMonthlyPercent = $possiblePreviousMonth > 0 ? (int) round(($completedPreviousMonth / $possiblePreviousMonth) * 100) : 0;
 
         return [
             'dailyPercent' => $dailyPercent,
             'weeklyPercent' => $weeklyPercent,
             'monthlyPercent' => $monthlyPercent,
+            'previousDailyPercent' => $previousDailyPercent,
+            'previousWeeklyPercent' => $previousWeeklyPercent,
+            'previousMonthlyPercent' => $previousMonthlyPercent,
+            'previousDayLabel' => $previousDay->format('M j, Y'),
+            'previousWeekRange' => $previousWeekStart->format('M j') . ' - ' . $previousWeekEnd->format('M j'),
+            'previousMonthLabel' => $previousMonthStart->format('F Y'),
             'completedToday' => $completedToday,
             'completedWeekly' => $completedWeekly,
             'completedMonthly' => $completedMonthly,

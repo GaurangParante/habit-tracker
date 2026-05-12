@@ -15,28 +15,61 @@
                 <div class="col-12 col-md-4">
                     <div class="habit-card rounded-4 p-4 text-center">
                         <h3 class="h6 text-muted text-uppercase">Daily</h3>
-                        <div class="chart-wrap">
-                            <canvas id="dailyChart" width="180" height="180"></canvas>
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap">
+                            <div>
+                                <div class="chart-wrap">
+                                    <canvas id="dailyChart" width="180" height="180"></canvas>
+                                </div>
+                                <p class="text-muted small mb-0">Today</p>
+                            </div>
+                            <div>
+                                <div class="chart-mini mx-auto">
+                                    <canvas id="previousDailyChart" width="120" height="120"></canvas>
+                                </div>
+                                <p class="text-muted small mb-0">Previous day</p>
+                                <p class="text-muted small mb-0">{{ $previousDayLabel }}</p>
+                            </div>
                         </div>
-                        <p class="text-muted small mb-0">Today completion</p>
                     </div>
                 </div>
                 <div class="col-12 col-md-4">
                     <div class="habit-card rounded-4 p-4 text-center">
                         <h3 class="h6 text-muted text-uppercase">Weekly</h3>
-                        <div class="chart-wrap">
-                            <canvas id="weeklyChart" width="180" height="180"></canvas>
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap">
+                            <div>
+                                <div class="chart-wrap">
+                                    <canvas id="weeklyChart" width="180" height="180"></canvas>
+                                </div>
+                                <p class="text-muted small mb-0">Last 7 days</p>
+                            </div>
+                            <div>
+                                <div class="chart-mini mx-auto">
+                                    <canvas id="previousWeeklyChart" width="120" height="120"></canvas>
+                                </div>
+                                <p class="text-muted small mb-0">Previous week</p>
+                                <p class="text-muted small mb-0">{{ $previousWeekRange }}</p>
+                            </div>
                         </div>
-                        <p class="text-muted small mb-0">Last 7 days</p>
                     </div>
                 </div>
                 <div class="col-12 col-md-4">
                     <div class="habit-card rounded-4 p-4 text-center">
                         <h3 class="h6 text-muted text-uppercase">Monthly</h3>
-                        <div class="chart-wrap">
-                            <canvas id="monthlyChart" width="180" height="180"></canvas>
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap">
+                            <div>
+                                <div class="chart-wrap">
+                                    <canvas id="monthlyChart" width="180" height="180"></canvas>
+                                </div>
+                                <p class="text-muted small mb-0">Current month</p>
+                            </div>
+                            <div>
+                                <div class="chart-mini mx-auto">
+                                    <canvas id="previousMonthlyChart" width="120" height="120"></canvas>
+                                </div>
+                                <p class="text-muted small mb-0">Previous month</p>
+                                <p class="text-muted small mb-0">{{ $previousMonthLabel }}</p>
+                            </div>
                         </div>
-                        <p class="text-muted small mb-0">Current month</p>
                     </div>
                 </div>
             </div>
@@ -243,6 +276,9 @@
             makeDonut('dailyChart', {{ $dailyPercent }}, '#1f7a5b');
             makeDonut('weeklyChart', {{ $weeklyPercent }}, '#2b9d7a');
             makeDonut('monthlyChart', {{ $monthlyPercent }}, '#0f5a44');
+            makeDonut('previousDailyChart', {{ $previousDailyPercent }}, '#88b6a4');
+            makeDonut('previousWeeklyChart', {{ $previousWeeklyPercent }}, '#7cbca3');
+            makeDonut('previousMonthlyChart', {{ $previousMonthlyPercent }}, '#6aa993');
 
             @foreach ($habitStats as $habit)
                 makeDonut('habit-weekly-{{ $habit['id'] }}', {{ $habit['weeklyPercent'] }}, '#1f7a5b');

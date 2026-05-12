@@ -456,6 +456,9 @@
                         <a class="nav-link {{ request()->routeIs('habits.manage', 'habits.edit') ? 'active' : '' }}" href="{{ route('habits.manage') }}">
                             <i class="fa-solid fa-list-check"></i>Manage Habits
                         </a>
+                        <a class="nav-link {{ request()->routeIs('habits.history') ? 'active' : '' }}" href="{{ route('habits.history') }}">
+                            <i class="fa-solid fa-calendar-days"></i>Habit History
+                        </a>
                         <a class="nav-link {{ request()->routeIs('todos.*') ? 'active' : '' }}" href="{{ route('todos.index') }}">
                             <i class="fa-solid fa-check-double"></i>Todos
                         </a>
@@ -480,6 +483,9 @@
                             </a>
                             <a class="nav-link {{ request()->routeIs('habits.manage', 'habits.edit') ? 'active' : '' }}" href="{{ route('habits.manage') }}">
                                 <i class="fa-solid fa-list-check"></i>Manage Habits
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('habits.history') ? 'active' : '' }}" href="{{ route('habits.history') }}">
+                                <i class="fa-solid fa-calendar-days"></i>Habit History
                             </a>
                             <a class="nav-link {{ request()->routeIs('todos.*') ? 'active' : '' }}" href="{{ route('todos.index') }}">
                                 <i class="fa-solid fa-check-double"></i>Todos

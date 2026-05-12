@@ -24,7 +24,11 @@ class DashboardController extends Controller
             ->addSelect(
                 'habits.*',
                 DB::raw('COALESCE(today_logs.count, 0) as today_count'),
-                DB::raw('CASE WHEN COALESCE(today_logs.count, 0) >= habits.target_per_day THEN 1 ELSE 0 END as today_status')
+                DB::raw("CASE
+                    WHEN COALESCE(today_logs.count, 0) >= habits.target_per_day OR today_logs.status = 'completed' THEN 'completed'
+                    WHEN today_logs.status = 'missed' THEN 'missed'
+                    ELSE 'pending'
+                END as today_status")
             )
             ->orderBy('habits.created_at')
             ->get();
